@@ -6,31 +6,28 @@ import subprocess
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import pygame
+from dotenv import load_dotenv
+import os
 
-# Spotify credentials (replace with your own values)
-SPOTIPY_CLIENT_ID = 'your_client_id'
-SPOTIPY_CLIENT_SECRET = 'your_client_secret'
-SPOTIPY_REDIRECT_URI = 'http://localhost:8888/callback'
+load_dotenv()
 
-# Set your NRK Radio stream URL
+
 NRK_RADIO_URL = 'http://lyd.nrk.no/nrk_radio_p1_hordaland_mp3_h'
 
-# Spotify authentication
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
-                                               client_secret=SPOTIPY_CLIENT_SECRET,
-                                               redirect_uri=SPOTIPY_REDIRECT_URI,
+
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=os.environ.get("SPOTIPY_CLIENT_ID"),
+                                               client_secret=os.environ.get("SPOTIPY_CLIENT_SECRET"),
+                                               redirect_uri=os.environ.get("SPOTIPY_REDIRECT_URI"),
                                                scope='user-library-read user-read-playback-state user-modify-playback-state'))
 
-# Initialize pygame for displaying information
 pygame.init()
 pygame.font.init()
-screen = pygame.display.set_mode((800, 480), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((2560, 1440), pygame.FULLSCREEN)
 pygame.display.set_caption('Music Player')
 
-# Font for displaying information
+
 font = pygame.font.Font(None, 36)
 
-# Function to get current Spotify track information
 def get_spotify_track_info():
     track = sp.current_playback()
     if track is not None and 'item' in track:
@@ -38,7 +35,6 @@ def get_spotify_track_info():
     else:
         return None, None, None, None
 
-# Function to display information on the screen
 def display_info(title, artist, album, duration):
     screen.fill((0, 0, 0))  # Clear the screen
     if title is not None:
