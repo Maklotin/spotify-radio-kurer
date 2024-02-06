@@ -8,11 +8,13 @@ from spotipy.oauth2 import SpotifyOAuth
 import pygame
 from dotenv import load_dotenv
 import os
+import requests
+import io
 
 load_dotenv()
 
 
-NRK_RADIO_URL = 'http://lyd.nrk.no/nrk_radio_p1_hordaland_mp3_h'
+NRK_RADIO_URL = 'https://radio.nrk.no/direkte/jazz'
 
 
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=os.environ.get("SPOTIPY_CLIENT_ID"),
@@ -31,25 +33,52 @@ font = pygame.font.Font(None, 36)
 def get_spotify_track_info():
     track = sp.current_playback()
     if track is not None and 'item' in track:
-        return track['item']['name'], track['item']['artists'][0]['name'], track['item']['album']['name'], track['item']['duration_ms']
+        album_cover_url = track['item']['album']['images'][0]['url'] if track['item']['album']['images'] else None
+        artist_id = track['item']['artists'][0]['id']
+        artist_info = sp.artist(artist_id)
+        artist_image_url = artist_info['images'][0]['url'] if artist_info['images'] else None
+        progress_ms = track['progress_ms']
+        return track['item']['name'], track['item']['artists'][0]['name'], track['item']['album']['name'], track['item']['duration_ms'], album_cover_url, progress_ms, artist_image_url
     else:
-        return None, None, None, None
+        return None, None, None, None, None, None, None
 
-def display_info(title, artist, album, duration):
+def display_info(title, artist, album, duration, album_cover_url, progress, artist_image_url):
     screen.fill((0, 0, 0))  # Clear the screen
     if title is not None:
-        text = font.render(f"{title} - {artist} - {album} - {duration}", True, (255, 255, 255))
+        text = font.render(f"{title} - {artist} - {album} - {ms_to_min_sec(progress)} / {ms_to_min_sec(duration)}", True, (255, 255, 255))
         screen.blit(text, (10, 10))
+        
+        if album_cover_url is not None:
+            response = requests.get(album_cover_url)
+            image_file = io.BytesIO(response.content)
+            album_image_surface = pygame.image.load(image_file)
+            screen.blit(album_image_surface, (10, 50))  # Adjust the position based on your needs
+
+        if artist_image_url is not None:
+            response = requests.get(artist_image_url)
+            image_file = io.BytesIO(response.content)
+            artist_image_surface = pygame.image.load(image_file)
+            screen.blit(artist_image_surface, (10, 300))  # Adjust the position based on your needs
+
     pygame.display.flip()
+
+def ms_to_min_sec(ms):
+    # Convert from milliseconds to seconds
+    total_seconds = ms // 1000
+    # Use divmod to get minutes and seconds
+    minutes, seconds = divmod(total_seconds, 60)
+    # Return as a string in the format 'minutes:seconds'
+    return f"{minutes}:{seconds:02}"
 
 # Main loop
 while True:
-    # Check the current mode (you can replace this with your switch logic)
-    mode = 1  # For now, assume 1 means Spotify, 2 means radio
+
+    # 1 = Spotify, 2 = NRK Radio
+    mode = 1
 
     if mode == 1:  # Spotify mode
-        title, artist, album, duration = get_spotify_track_info()
-        display_info(title, artist, album, duration)
+        title, artist, album, duration, album_cover_url, progress, artist_image_url = get_spotify_track_info()
+        display_info(title, artist, album, duration, album_cover_url, progress, artist_image_url)
     elif mode == 2:  # Radio mode
         # You may need to adjust this based on your specific radio streaming method
         subprocess.run(['mpc', 'clear'])
@@ -59,7 +88,8 @@ while True:
         artist = ''
         album = ''
         duration = ''  # Radio streams don't have a fixed duration
-        display_info(title, artist, album, duration)
+        album_cover_url = None  # Radio streams don't have an album cover
+        display_info(title, artist, album, duration, album_cover_url)
 
     # Handle events (e.g., quitting the program)
     for event in pygame.event.get():
